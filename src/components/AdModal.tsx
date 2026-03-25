@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -11,6 +11,7 @@ interface AdModalProps {
 export function AdModal({ isOpen, onClose, onComplete }: AdModalProps) {
   const [countdown, setCountdown] = useState(5);
   const [canSkip, setCanSkip] = useState(false);
+  const adContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -31,6 +32,26 @@ export function AdModal({ isOpen, onClose, onComplete }: AdModalProps) {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, [isOpen]);
+
+  // Load ad script when modal opens
+  useEffect(() => {
+    if (!isOpen || !adContainerRef.current) return;
+
+    // Clear previous content
+    adContainerRef.current.innerHTML = '';
+
+    // Inject the Adsterra/CPM ad script
+    const script = document.createElement('script');
+    script.src = 'https://pl28972011.profitablecpmratenetwork.com/d5/d3/72/d5d37220e6961e1ac7e7dc82d0153cb4.js';
+    script.async = true;
+    adContainerRef.current.appendChild(script);
+
+    return () => {
+      if (adContainerRef.current) {
+        adContainerRef.current.innerHTML = '';
+      }
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -57,7 +78,10 @@ export function AdModal({ isOpen, onClose, onComplete }: AdModalProps) {
 
         {/* Ad Content Area */}
         <div className="p-6">
-          <div className="w-full h-48 bg-secondary/50 rounded-lg flex items-center justify-center border border-border/50">
+          <div
+            ref={adContainerRef}
+            className="w-full min-h-[250px] bg-secondary/50 rounded-lg flex items-center justify-center border border-border/50 overflow-hidden"
+          >
             <div className="text-center text-muted-foreground">
               <p className="text-sm font-medium">Advertisement</p>
               <p className="text-xs mt-1">Loading ad content...</p>
