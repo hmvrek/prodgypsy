@@ -81,12 +81,7 @@ export default function Home() {
       } else if (user) {
         await supabase.from('links').delete().eq('short_id', shortId).eq('user_id', user.id);
       }
-      // Also delete file from storage
-      const link = links.find(l => l.short_id === shortId);
-      if (link) {
-        const filePath = `uploads/${shortId}`;
-        await supabase.storage.from('files').remove([filePath]);
-      }
+      // File is on GoFile.io - no local storage to delete
       setLinks(links.filter(l => l.short_id !== shortId));
       removeOwnerToken(shortId);
     } catch {} finally {
