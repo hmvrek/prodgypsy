@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from "@/hooks/useAuth";
+import { Progress } from "@/components/ui/progress";
 
 interface FileUploadProps {
   onUploadComplete?: () => void;
@@ -42,10 +43,61 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
 }
 
+async function getGoFileServer(): Promise<string> {
+  const res = await fetch('https://api.gofile.io/servers', { method: 'GET' });
+  const data = await res.json();
+  if (data.status === 'ok' && data.data?.servers?.length > 0) {
+    return data.data.servers[0].name;
+  }
+  throw new Error('Nie udało się połączyć z serwerem GoFile');
+}
+
+async function uploadToGoFile(
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<{ downloadPage: string; directLink: string; fileName: string }> {
+  const server = await getGoFileServer();
+
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `https://${server}.gofile.io/contents/uploadfile`);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (data.status === 'ok' && data.data) {
+          resolve({
+            downloadPage: data.data.downloadPage,
+            directLink: data.data.downloadPage,
+            fileName: data.data.fileName || file.name,
+          });
+        } else {
+          reject(new Error('Upload nie powiódł się'));
+        }
+      } catch {
+        reject(new Error('Błąd odpowiedzi serwera'));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Błąd połączenia z GoFile'));
+    xhr.send(formData);
+  });
+}
+
 export function FileUpload({ onUploadComplete }: FileUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState("");
   const [createdLink, setCreatedLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -81,32 +133,21 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
 
     setIsUploading(true);
     setError("");
+    setUploadProgress(0);
 
     const shortId = generateShortId();
     const ownerToken = generateOwnerToken();
-    const supabase = createClient();
 
     try {
-      // Upload file to Supabase Storage
-      const filePath = `uploads/${shortId}/${selectedFile.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from('files')
-        .upload(filePath, selectedFile);
+      // Upload to GoFile.io
+      const goFileResult = await uploadToGoFile(selectedFile, setUploadProgress);
 
-      if (uploadError) {
-        throw new Error(uploadError.message);
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('files')
-        .getPublicUrl(filePath);
-
-      // Save link info to database
+      // Save link info to Supabase database
+      const supabase = createClient();
       const linkData = {
         title: title.trim() || selectedFile.name,
         description: `Plik: ${selectedFile.name}`,
-        url: urlData.publicUrl,
+        url: goFileResult.downloadPage,
         file_size: formatFileSize(selectedFile.size),
         short_id: shortId,
         owner_token: ownerToken,
@@ -129,6 +170,7 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
       setError(err instanceof Error ? err.message : 'Nie udało się wrzucić pliku');
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -156,6 +198,7 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
     setCreatedLink(null);
     setCopied(false);
     setError("");
+    setUploadProgress(0);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -231,7 +274,7 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
               <p className="text-muted-foreground">
                 <span className="text-primary font-medium">Kliknij</span> lub przeciągnij plik tutaj
               </p>
-              <p className="text-xs text-muted-foreground">Dowolny plik do 50MB</p>
+              <p className="text-xs text-muted-foreground">Dowolny plik — bez limitu rozmiaru!</p>
             </div>
           )}
         </div>
@@ -247,6 +290,17 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
             disabled={isUploading}
           />
         </div>
+
+        {/* Upload progress */}
+        {isUploading && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Wrzucanie...</span>
+              <span className="text-primary font-medium">{uploadProgress}%</span>
+            </div>
+            <Progress value={uploadProgress} className="h-2" />
+          </div>
+        )}
 
         {error && (
           <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
@@ -264,7 +318,7 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
           {isUploading ? (
             <>
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-foreground mr-2" />
-              Wrzucanie...
+              Wrzucanie... {uploadProgress}%
             </>
           ) : (
             <>
