@@ -41,10 +41,23 @@ export function AdModal({ isOpen, onClose, onComplete }: AdModalProps) {
     // Clear previous content
     adContainerRef.current.innerHTML = '';
 
-    // Inject the Adsterra/CPM ad script
+    // Smartlink ad - open in background on modal show
+    const smartlinkOpened = sessionStorage.getItem('smartlink_shown');
+    if (!smartlinkOpened) {
+      window.open('https://www.profitablecpmratenetwork.com/jtxkezrckp?key=9ef4988aeb53b1c1e12e8b363b9eb2fe', '_blank');
+      sessionStorage.setItem('smartlink_shown', 'true');
+    }
+
+    // Native banner inside modal
     const script = document.createElement('script');
-    script.src = 'https://pl28972011.profitablecpmratenetwork.com/d5/d3/72/d5d37220e6961e1ac7e7dc82d0153cb4.js';
     script.async = true;
+    script.setAttribute('data-cfasync', 'false');
+    script.src = 'https://pl28979415.profitablecpmratenetwork.com/12799f25dcbfc1f66c9e1995edc89367/invoke.js';
+    
+    const container = document.createElement('div');
+    container.id = 'container-12799f25dcbfc1f66c9e1995edc89367-modal';
+    
+    adContainerRef.current.appendChild(container);
     adContainerRef.current.appendChild(script);
 
     return () => {
