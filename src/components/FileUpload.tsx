@@ -116,7 +116,7 @@ export function FileUpload({ onUploadComplete }: FileUploadProps) {
 
       const { error: dbError } = await supabase
         .from('links')
-        .insert(linkData)
+        .insert(linkData as any)
         .select()
         .single();
 

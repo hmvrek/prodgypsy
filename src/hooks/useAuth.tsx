@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, createContext, ReactNode } from "react";
-import { createClient } from "@/lib/supabase";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase";
 import type { User } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -14,23 +14,27 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   isAdmin: false,
-  isLoading: true,
-  signIn: async () => ({}),
-  signUp: async () => ({}),
+  isLoading: false,
+  signIn: async () => ({ error: "Nie skonfigurowano" }),
+  signUp: async () => ({ error: "Nie skonfigurowano" }),
   signOut: async () => {},
 });
 
-// Admin emails - add your admin email here
 const ADMIN_EMAILS = ["admin@lekkawrzuta.pl"];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const supabase = createClient();
 
   const isAdmin = user ? ADMIN_EMAILS.includes(user.email || "") : false;
 
   useEffect(() => {
+    if (!isSupabaseConfigured()) {
+      setIsLoading(false);
+      return;
+    }
+
+    const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
       setIsLoading(false);
@@ -45,19 +49,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!isSupabaseConfigured()) return { error: "Supabase nie jest skonfigurowany" };
+    const { error } = await createClient().auth.signInWithPassword({ email, password });
     if (error) return { error: error.message };
     return {};
   };
 
   const signUp = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({ email, password });
+    if (!isSupabaseConfigured()) return { error: "Supabase nie jest skonfigurowany" };
+    const { error } = await createClient().auth.signUp({ email, password });
     if (error) return { error: error.message };
     return {};
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (!isSupabaseConfigured()) return;
+    await createClient().auth.signOut();
     setUser(null);
   };
 
