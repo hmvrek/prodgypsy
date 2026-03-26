@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { Header } from "@/components/Header";
 import { FloatingParticles } from "@/components/FloatingParticles";
 import { LinkForm } from "@/components/LinkForm";
+import { AdBanner } from "@/components/AdBanner";
+import { SocialBarAd } from "@/components/SocialBarAd";
 import { Shield, Zap, Globe, Copy, Check, ExternalLink, Trash2, ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase";
@@ -145,6 +147,9 @@ export default function Home() {
       {/* Floating Particles */}
       <FloatingParticles />
 
+      {/* Social Bar Ad - loads globally */}
+      <SocialBarAd />
+
       {/* Content */}
       <div className="relative z-10">
         <Header />
@@ -176,6 +181,11 @@ export default function Home() {
                 <span className="text-sm">Ad Monetization</span>
               </div>
             </div>
+          </div>
+
+          {/* Top Banner Ad 728x90 */}
+          <div className="flex justify-center mb-8">
+            <AdBanner type="banner728x90" className="max-w-full" />
           </div>
 
           {/* Links List */}
@@ -253,6 +263,11 @@ export default function Home() {
               )}
             </div>
           )}
+
+          {/* Bottom Native Banner Ad */}
+          <div className="mt-12">
+            <AdBanner type="native" className="max-w-2xl mx-auto" />
+          </div>
         </main>
       </div>
 
